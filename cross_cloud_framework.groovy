@@ -105,7 +105,7 @@ node('master') {
         }
 
         stage('Terraform Init & Plan') {
-            dir("/home/devuser/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
+            dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
                 sh 'terraform init'
                 sh 'terraform plan'
             }
@@ -113,13 +113,13 @@ node('master') {
 
         if (params.ACTION == 'apply') {
             stage('Terraform Apply') {
-                dir("/home/devuser/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
                     sh 'terraform apply -auto-approve'
                 }
             }
 
             stage('Generate Terraform Outputs & Inventory') {
-                dir("/home/devuser/cross-cloud-devops-framework") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     // Dump outputs to JSON
                     sh 'terraform -chdir=terraform/aws output -json > tf_outputs.json'
 
@@ -133,7 +133,7 @@ node('master') {
             }
 
             stage('Ansible Ping Test') {
-                dir("/home/devuser/cross-cloud-devops-framework") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     sh '''
                     ansible -i ansible/inventory/aws_hosts.ini ec2 -m ping \
                     -u ec2-user --private-key ~/.ssh/crosscloud-key.pem \
@@ -143,7 +143,7 @@ node('master') {
             }
 
             stage('Ansible Install Dependencies') {
-                dir("/home/devuser/cross-cloud-devops-framework") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     sh '''
                     ansible-playbook -i ansible/inventory/aws_hosts.ini \
                     ansible/playbooks/install_dependencies.yml -l ec2 \
@@ -154,7 +154,7 @@ node('master') {
             }
 
             stage('Verify Docker Setup') {
-                dir("/home/devuser/cross-cloud-devops-framework") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     sh '''
                     ssh -o StrictHostKeyChecking=no \
                     -i ~/.ssh/crosscloud-key.pem ec2-user@$(terraform -chdir=terraform/aws output -raw extra_ec2_public_ip) \
@@ -165,7 +165,7 @@ node('master') {
 
         } else {
             stage('Terraform Destroy') {
-                dir("/home/devuser/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/${params.CLOUD_PROVIDER}") {
                     sh 'terraform destroy -auto-approve'
                 }
             }
