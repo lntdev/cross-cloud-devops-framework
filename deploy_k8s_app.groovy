@@ -79,7 +79,7 @@ node('master') {
             // Azure AKS Deploy / Validate / Destroy
             // =========================
             stage('Configure kubeconfig (AKS)') {
-                dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     sh '''
                         set -euo pipefail
                         echo "Configuring kubeconfig for AKS cluster..."
