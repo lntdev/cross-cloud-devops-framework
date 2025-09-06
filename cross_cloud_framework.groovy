@@ -269,7 +269,7 @@ node('master') {
       // ==========================
       if (params.CLOUD_PROVIDER == 'azure') {
         stage('Configure kubectl (AKS)') {
-          dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+          dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
             sh '''
               set -euo pipefail
               which az && az version || true
@@ -291,7 +291,7 @@ node('master') {
         }
 
         stage('Deploy Nginx (AKS)') {
-          dir("/var/lib/jenkins/cross-cloud-devops-framework/azure") {
+          dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
             sh '''
               set -euo pipefail
               # Apply deployment manifest
@@ -310,7 +310,7 @@ node('master') {
         }
 
         stage('Expose Service (AKS)') {
-          dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+          dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
             sh '''
               set -euo pipefail
               # Idempotent expose: create service only if it doesn't exist
@@ -330,7 +330,7 @@ node('master') {
         }
 
         stage('Wait for External IP (AKS)') {
-          dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+          dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
             sh '''
               set -euo pipefail
               echo "Waiting for LoadBalancer external IP..."
@@ -356,7 +356,7 @@ node('master') {
         }
 
         stage('Smoke Test (AKS)') {
-          dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+          dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
             sh '''
               set -euo pipefail
               source aks_app_url.env || true
