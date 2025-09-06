@@ -83,10 +83,7 @@ node('master') {
                     sh '''
                         set -euo pipefail
                         echo "Configuring kubeconfig for AKS cluster..."
-                        az aks get-credentials \
-                            --resource-group crosscloud-aks-rg \
-                            --name crosscloud_aks \
-                            --overwrite-existing
+                        az aks get-credentials --resource-group crosscloud-aks-rg --name crosscloud_aks --overwrite-existing
                     '''
                 }
             }
