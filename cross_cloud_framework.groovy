@@ -354,24 +354,6 @@ node('master') {
             '''
           }
         }
-
-        // stage('Smoke Test (AKS)') {
-        //   dir("/var/lib/jenkins/cross-cloud-devops-framework/terraform/azure") {
-        //     sh '''
-        //       set -euo pipefail
-        //       source aks_app_url.env || true
-        //       if [ -n "${APP_URL:-}" ]; then
-        //         echo "Curling ${APP_URL} ..."
-        //         # Don't fail the build on 000 status while LB stabilizes; just print output
-        //         curl -sS --max-time 10 "${APP_URL}" || true
-        //       else
-        //         echo "APP_URL not found; skipping smoke test."
-        //       fi
-        //     '''
-        //   }
-        //   // Optionally archive the URL for quick reference in build artifacts
-        //   archiveArtifacts artifacts: 'aks_app_url.env', fingerprint: true, onlyIfSuccessful: false
-        // }
       }
 
     } else {
