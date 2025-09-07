@@ -30,6 +30,7 @@ node('master') {
             stage('Configure kubeconfig (EKS)') {
                 dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                     sh '''
+                        export PATH=$PATH:/usr/local/bin
                         set -euo pipefail
                         echo "Setting up kubeconfig from Terraform output..."
                         terraform -chdir=terraform/aws output -raw kubeconfig > ${KUBECONFIG}
