@@ -359,6 +359,23 @@ node('master') {
               }
             }
           }
+          if (params.ACTION == 'destroy') {
+            stage('Uninstall Monitoring (Helm) - EKS') {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+                sh '''
+                    set +e
+                    # Remove kube-prometheus-stack and Loki/Promtail
+                    helm -n monitoring uninstall kps  || true
+                    helm -n monitoring uninstall loki || true
+
+                    # Delete the monitoring namespace (idempotent)
+                    kubectl delete ns monitoring --ignore-not-found=true || true
+                '''
+                }
+            }
+
+            // keep your existing "Destroy K8s App on EKS" stage below this line (unchanged)
+          }
 
           if (params.ACTION == 'destroy') {
             stage('Destroy K8s App on EKS') {
@@ -454,6 +471,25 @@ node('master') {
           }
         }
       }
+
+      if (params.ACTION == 'destroy') {
+        stage('Uninstall Monitoring (Helm) - AKS') {
+            dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+            sh '''
+                set +e
+                # Remove kube-prometheus-stack and Loki/Promtail
+                helm -n monitoring uninstall kps  || true
+                helm -n monitoring uninstall loki || true
+
+                # Delete the monitoring namespace (idempotent)
+                kubectl delete ns monitoring --ignore-not-found=true || true
+            '''
+            }
+        }
+
+        // keep your existing "Destroy K8s App on AKS" stage below this line (unchanged)
+      }
+      
       if (params.ACTION == 'destroy') {
         stage('Destroy K8s App on AKS') {
           dir("/var/lib/jenkins/cross-cloud-devops-framework") {
