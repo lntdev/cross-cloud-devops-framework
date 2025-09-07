@@ -1,0 +1,68 @@
+grafana:
+  adminPassword: "admin"                # change in Jenkins via --set or secret
+  service:
+    type: LoadBalancer                  # or ClusterIP + your ingress
+  ingress:
+    enabled: false
+  defaultDashboardsEnabled: true
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      folder: /var/lib/grafana/dashboards
+
+prometheus:
+  service:
+    type: ClusterIP
+  prometheusSpec:
+    retention: 15d
+    retentionSize: 20GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    ruleSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: default
+      group_by: [cluster, alertname]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+    receivers:
+      - name: default
+        # Example email (uncomment & fill creds via secret if you want email)
+        # email_configs:
+        #   - to: "alerts@example.com"
+        #     from: "noreply@example.com"
+        #     smarthost: "smtp.example.com:587"
+        #     auth_username: "smtp-user"
+        #     auth_password: "smtp-pass"
+        #     require_tls: true
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+# Reduce noise in tiny test clusters
+defaultRules:
+  create: true
+  rules:
+    etcd: false
+    kubeScheduler: true
+    kubeControllerManager: true
+    kubeApiserver: true
+    kubeApiserverAvailability: true
+    kubeApiserverError: true
+
+# Storage (optional; both EKS/AKS have default StorageClass)
+prometheusOperator:
+  tls:
+    enabled: false
+

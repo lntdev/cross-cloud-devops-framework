@@ -1,0 +1,205 @@
+{
+  "uid": "xcloud-k8s-logs-health",
+  "title": "Cross-Cloud K8s: Logs & Health",
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "tags": ["kubernetes", "eks", "aks", "loki", "prometheus"],
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "prom",
+        "type": "datasource",
+        "query": "prometheus",
+        "label": "Prometheus DS",
+        "current": {},
+        "refresh": 2
+      },
+      {
+        "name": "loki",
+        "type": "datasource",
+        "query": "loki",
+        "label": "Loki DS",
+        "current": {},
+        "refresh": 2
+      },
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "$prom"},
+        "query": "label_values(kube_pod_info, cluster)",
+        "includeAll": true,
+        "multi": false,
+        "refresh": 2,
+        "current": { "text": "All", "value": ".*" },
+        "regex": "",
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "$prom"},
+        "query": "label_values(kube_pod_info{cluster=~\"$cluster\"}, namespace)",
+        "includeAll": true,
+        "multi": false,
+        "refresh": 2,
+        "current": { "text": "All", "value": ".*" }
+      },
+      {
+        "name": "app",
+        "label": "App (label=app)",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "$loki"},
+        "query": "label_values({cluster=~\"$cluster\", namespace=~\"$namespace\"}, app)",
+        "includeAll": true,
+        "multi": false,
+        "refresh": 2,
+        "current": { "text": "All", "value": ".*" }
+      },
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "$prom"},
+        "query": "label_values(kube_pod_info{cluster=~\"$cluster\", namespace=~\"$namespace\"}, pod)",
+        "includeAll": true,
+        "multi": false,
+        "refresh": 2,
+        "current": { "text": "All", "value": ".*" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Log Lines (last 5m)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "loki", "uid": "$loki"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({cluster=~\"$cluster\", namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"}[$__interval]))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error Rate (logs/min)",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "datasource": {"type": "loki", "uid": "$loki"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(({cluster=~\"$cluster\", namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"} |= \"error\")[5m])) * 60"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "timeSeries",
+      "title": "HTTP 4xx/5xx (Nginx from logs)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 6},
+      "datasource": {"type": "loki", "uid": "$loki"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(({cluster=~\"$cluster\", namespace=~\"$namespace\", app=~\"$app\"} |~ \"\\\\s(4\\\\d\\\\d|5\\\\d\\\\d)\\\\s\" )[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "options": {
+        "legend": {"showLegend": true},
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Noisy Pods (by log lines)",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6},
+      "datasource": {"type": "loki", "uid": "$loki"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(5, sum by (pod) (count_over_time({cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__interval])))"
+        }
+      ],
+      "transformations": [{"id": "labelsToFields", "options": {}}]
+    },
+    {
+      "type": "logs",
+      "title": "Live Logs",
+      "gridPos": {"x": 12, "y": 6, "w": 12, "h": 10},
+      "datasource": {"type": "loki", "uid": "$loki"},
+      "options": {
+        "enableLogDetails": true,
+        "showLabels": true,
+        "dedupStrategy": "none",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"}"
+        }
+      ]
+    },
+    {
+      "type": "timeSeries",
+      "title": "CPU by Namespace (cores)",
+      "gridPos": {"x": 0, "y": 10, "w": 12, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "$prom"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=\"\", namespace=~\"$namespace\", cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "options": { "legend": {"showLegend": true}, "tooltip": {"mode": "multi"} }
+    },
+    {
+      "type": "timeSeries",
+      "title": "Memory by Namespace (MiB)",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "$prom"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (container_memory_working_set_bytes{container!=\"\", namespace=~\"$namespace\", cluster=~\"$cluster\"}) / 1024 / 1024",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "options": { "legend": {"showLegend": true}, "tooltip": {"mode": "multi"} }
+    },
+    {
+      "type": "table",
+      "title": "Pods Restarting (increase over range)",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "$prom"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(20, sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", cluster=~\"$cluster\"}[$__range])))"
+        }
+      ],
+      "transformations": [{"id": "labelsToFields", "options": {}}]
+    }
+  ]
+}
+

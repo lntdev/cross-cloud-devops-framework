@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app
+  namespace: apps
+  labels:
+    app: sample-app
+spec:
+  type: LoadBalancer       # EKS will provision an external ELB for you
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app: sample-app
+

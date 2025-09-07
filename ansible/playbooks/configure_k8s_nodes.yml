@@ -1,0 +1,31 @@
+---
+- name: Configure Kubernetes Master Node
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Initialize Kubernetes cluster
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Copy kubeconfig to user
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+      become_user: ubuntu
+
+    - name: Install Calico Network Plugin
+      command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Join Kubernetes Worker Nodes
+  hosts: workers
+  become: yes
+  vars:
+    join_command: "{{ hostvars['masters']['kubeadm_join_cmd'] }}"
+  tasks:
+    - name: Join worker node to cluster
+      command: "{{ join_command }}"
+

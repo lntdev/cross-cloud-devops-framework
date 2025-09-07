@@ -1,0 +1,62 @@
+---
+- name: Install dependencies on all nodes
+  hosts: all
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Gather facts
+      setup:
+
+    # ---------- Debian/Ubuntu ----------
+    - name: Update apt cache (Debian)
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install packages (Debian)
+      apt:
+        name:
+          - ca-certificates
+          - docker.io
+          # - curl   # (optional on Debian)
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Enable and start Docker (Debian)
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+      when: ansible_os_family == "Debian"
+
+    # ---------- Amazon Linux 2023 / RedHat ----------
+    - name: Ensure dnf plugins present (RedHat/Amazon)
+      dnf:
+        name: dnf-plugins-core
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # NOTE: Do NOT install 'curl' here to avoid conflict with curl-minimal
+    - name: Install packages (RedHat/Amazon)
+      dnf:
+        name:
+          - ca-certificates
+          - docker
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Enable and start Docker (RedHat/Amazon)
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+      when: ansible_os_family == "RedHat"
+
+    - name: Add ec2-user to docker group (RedHat/Amazon)
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+      when: ansible_os_family == "RedHat"
