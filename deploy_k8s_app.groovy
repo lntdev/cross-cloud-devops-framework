@@ -307,7 +307,7 @@ node('master') {
               dir("/var/lib/jenkins/cross-cloud-devops-framework") {
                 sh '''
                   set -euo pipefail
-                  # Create/ensure namespaces (apps + monitoring)
+                  # Namespaces (apps + monitoring)
                   kubectl apply -f k8s-manifests/namespaces.yaml
 
                   # Helm repos
@@ -321,13 +321,15 @@ node('master') {
                     -f monitoring/prometheus/values.yaml \
                     --create-namespace
 
-                  # Loki + Promtail
+                  # Loki + Promtail (attach a cluster label = eks)
                   helm upgrade --install loki grafana/loki-stack \
                     -n monitoring \
-                    -f monitoring/loki/values.yaml
+                    -f monitoring/loki/values.yaml \
+                    --set promtail.config.clients[0].external_labels.cluster=eks
 
-                  # Optional dashboards CM (safe if missing)
+                  # Dashboards: generic + your cross-cloud dashboard (if present)
                   kubectl apply -f monitoring/grafana/dashboards/k8s-overview-configmap.yaml || true
+                  kubectl apply -f monitoring/grafana/dashboards/crosscloud-dash.yaml || true
 
                   echo "Waiting for Grafana external endpoint (if LoadBalancer enabled)..."
                   for i in $(seq 1 40); do
@@ -401,7 +403,7 @@ node('master') {
           dir("/var/lib/jenkins/cross-cloud-devops-framework") {
             sh '''
               set -euo pipefail
-              # Create/ensure namespaces (apps + monitoring)
+              # Namespaces (apps + monitoring)
               kubectl apply -f k8s-manifests/namespaces.yaml
 
               # Helm repos
@@ -415,13 +417,15 @@ node('master') {
                 -f monitoring/prometheus/values.yaml \
                 --create-namespace
 
-              # Loki + Promtail
+              # Loki + Promtail (attach a cluster label = aks)
               helm upgrade --install loki grafana/loki-stack \
                 -n monitoring \
-                -f monitoring/loki/values.yaml
+                -f monitoring/loki/values.yaml \
+                --set promtail.config.clients[0].external_labels.cluster=aks
 
-              # Optional dashboards CM (safe if missing)
+              # Dashboards: generic + your cross-cloud dashboard (if present)
               kubectl apply -f monitoring/grafana/dashboards/k8s-overview-configmap.yaml || true
+              kubectl apply -f monitoring/grafana/dashboards/crosscloud-dash.yaml || true
 
               echo "Waiting for Grafana external endpoint (if LoadBalancer enabled)..."
               for i in $(seq 1 40); do
