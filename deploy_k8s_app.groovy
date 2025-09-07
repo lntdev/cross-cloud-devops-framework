@@ -132,34 +132,24 @@ node('master') {
   withEnv([
     "ANSIBLE_HOST_KEY_CHECKING=False",
     "KUBECONFIG=/var/lib/jenkins/cross-cloud-devops-framework/.kube/config",
-    "PATH=/usr/local/bin:${env.PATH}" // ensure kubectl/aws are visible
+    "PATH=/usr/local/bin:${env.PATH}"
   ]) {
 
     properties([
       parameters([
-        choice(
-          name: 'CLOUD_PROVIDER',
-          choices: ['aws', 'azure'],
-          description: 'Select the cloud provider for Kubernetes app deployment'
-        ),
-        choice(
-          name: 'ACTION',
-          choices: ['deploy', 'validate', 'destroy'],
-          description: 'Choose whether to deploy, validate, or destroy Kubernetes app manifests'
-        )
+        choice(name: 'CLOUD_PROVIDER', choices: ['aws','azure'], description: 'Select cloud'),
+        choice(name: 'ACTION', choices: ['deploy','validate','destroy'], description: 'What to do')
       ])
     ])
 
-    stage('Checkout Code') {
-      checkout scm
-    }
+    stage('Checkout Code') { checkout scm }
 
-    // =========================
-    // AWS EKS Deploy / Validate / Destroy
-    // =========================
     if (params.CLOUD_PROVIDER == 'aws') {
-      // Bind AWS creds for all AWS/EKS stages below
-      withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-crosscloud']]) {
+      // Bind AWS creds as username/password -> env vars
+      withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                        credentialsId: 'aws-crosscloud-up',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         withEnv(["AWS_DEFAULT_REGION=us-east-1"]) {
 
           stage('Configure kubeconfig (EKS)') {
@@ -167,12 +157,9 @@ node('master') {
               sh '''
                 set -euo pipefail
                 echo "Setting up kubeconfig from Terraform output (EKS)..."
-             
                 terraform -chdir=terraform/aws output -raw kubeconfig | sed 's/\r$//' > "${KUBECONFIG}"
-                echo "== Contexts =="
-                kubectl config get-contexts || true
-                echo "== Nodes =="
-                kubectl get nodes -o wide || true
+                echo "== Contexts =="; kubectl config get-contexts || true
+                echo "== Nodes ==";    kubectl get nodes -o wide || true
               '''
             }
           }
@@ -216,23 +203,18 @@ node('master') {
       }
     }
 
-    // =========================
-    // Azure AKS Deploy / Validate / Destroy
-    // =========================
     if (params.CLOUD_PROVIDER == 'azure') {
       stage('Configure kubeconfig (AKS)') {
         dir("/var/lib/jenkins/cross-cloud-devops-framework") {
           sh '''
             set -euo pipefail
             echo "Configuring kubeconfig for AKS cluster..."
-            # avoid ANSI/control chars in kubeconfig when running non-interactively
             az aks get-credentials --resource-group crosscloud-aks-rg --name crosscloud_aks --overwrite-existing --only-show-errors --output none
             echo "== Contexts =="; kubectl config get-contexts || true
             echo "== Nodes ==";    kubectl get nodes -o wide || true
           '''
         }
       }
-
       if (params.ACTION == 'deploy') {
         stage('Deploy K8s App on AKS') {
           dir("/var/lib/jenkins/cross-cloud-devops-framework") {
@@ -244,7 +226,6 @@ node('master') {
           }
         }
       }
-
       if (params.ACTION == 'validate') {
         stage('Validate K8s App on AKS') {
           dir("/var/lib/jenkins/cross-cloud-devops-framework") {
@@ -256,7 +237,6 @@ node('master') {
           }
         }
       }
-
       if (params.ACTION == 'destroy') {
         stage('Destroy K8s App on AKS') {
           dir("/var/lib/jenkins/cross-cloud-devops-framework") {
