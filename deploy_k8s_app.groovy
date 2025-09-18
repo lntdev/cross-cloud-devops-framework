@@ -362,11 +362,12 @@ node('master') {
                       sh '''
                         set -euo pipefail
                         # Secret with SMTP password
+                        # Secret with SMTP password
                         kubectl -n monitoring delete secret grafana-smtp --ignore-not-found
                         kubectl -n monitoring create secret generic grafana-smtp \
                           --from-literal=password="$SMTP_PASSWORD"
 
-                        # Helm upgrade: password pulled from env, not in values
+                        # Fixed Helm command (uses extraEnv instead of env[])
                         helm upgrade --install kps prometheus-community/kube-prometheus-stack \
                           -n monitoring \
                           --reuse-values \
@@ -377,11 +378,12 @@ node('master') {
                           --set grafana.grafana.ini.smtp.from_address="${SMTP_FROM}" \
                           --set grafana.grafana.ini.smtp.from_name="${SMTP_FROM_NAME}" \
                           --set grafana.grafana.ini.smtp.skip_verify=true \
-                          --set grafana.env[0].name=SMTP_PASSWORD \
-                          --set grafana.env[0].valueFrom.secretKeyRef.name=grafana-smtp \
-                          --set grafana.env[0].valueFrom.secretKeyRef.key=password
+                          --set grafana.extraEnv[0].name=SMTP_PASSWORD \
+                          --set grafana.extraEnv[0].valueFrom.secretKeyRef.name=grafana-smtp \
+                          --set grafana.extraEnv[0].valueFrom.secretKeyRef.key=password
 
                         kubectl -n monitoring rollout status deploy/kps-grafana
+
                       '''
                     }
                   }
@@ -501,10 +503,12 @@ node('master') {
                 ]) {
                   sh '''
                     set -euo pipefail
+                    # Secret with SMTP password
                     kubectl -n monitoring delete secret grafana-smtp --ignore-not-found
                     kubectl -n monitoring create secret generic grafana-smtp \
                       --from-literal=password="$SMTP_PASSWORD"
 
+                    #  Fixed Helm command (uses extraEnv instead of env[])
                     helm upgrade --install kps prometheus-community/kube-prometheus-stack \
                       -n monitoring \
                       --reuse-values \
@@ -515,11 +519,12 @@ node('master') {
                       --set grafana.grafana.ini.smtp.from_address="${SMTP_FROM}" \
                       --set grafana.grafana.ini.smtp.from_name="${SMTP_FROM_NAME}" \
                       --set grafana.grafana.ini.smtp.skip_verify=true \
-                      --set grafana.env[0].name=SMTP_PASSWORD \
-                      --set grafana.env[0].valueFrom.secretKeyRef.name=grafana-smtp \
-                      --set grafana.env[0].valueFrom.secretKeyRef.key=password
+                      --set grafana.extraEnv[0].name=SMTP_PASSWORD \
+                      --set grafana.extraEnv[0].valueFrom.secretKeyRef.name=grafana-smtp \
+                      --set grafana.extraEnv[0].valueFrom.secretKeyRef.key=password
 
                     kubectl -n monitoring rollout status deploy/kps-grafana
+
                   '''
                 }
               }
