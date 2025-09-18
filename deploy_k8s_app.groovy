@@ -266,6 +266,10 @@ node('master') {
       parameters([
         choice(name: 'CLOUD_PROVIDER', choices: ['aws','azure'], description: 'Select cloud'),
         choice(name: 'ACTION', choices: ['deploy','validate','destroy'], description: 'What to do')
+        booleanParam(name: 'CONFIGURE_SMTP', defaultValue: true, description: 'Configure Grafana SMTP during deploy'),
+        string(name: 'SMTP_USER', defaultValue: 'manu.mankale@gmail.com', description: 'SMTP username (Gmail)'),
+        string(name: 'SMTP_FROM', defaultValue: 'manu.mankale@gmail.com', description: 'From address'),
+        string(name: 'SMTP_FROM_NAME', defaultValue: 'Grafana Alerts (Cross-Cloud)', description: 'From display name')
       ])
     ])
 
@@ -345,6 +349,48 @@ node('master') {
                 '''
               }
             }
+            stage('Configure Grafana SMTP') {
+              when { allOf { expression { params.ACTION == 'deploy' }; expression { params.CONFIGURE_SMTP } } }
+              steps {
+                dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+                  withCredentials([string(credentialsId: 'grafana-smtp-app-pass', variable: 'SMTP_PASSWORD')]) {
+                    withEnv([
+                      "SMTP_USER=${params.SMTP_USER}",
+                      "SMTP_FROM=${params.SMTP_FROM}",
+                      "SMTP_FROM_NAME=${params.SMTP_FROM_NAME}"
+                    ]) {
+                      sh '''
+                        set -euo pipefail
+
+                        # Create/refresh a Kubernetes Secret with the Gmail App Password
+                        kubectl -n monitoring delete secret grafana-smtp --ignore-not-found
+                        kubectl -n monitoring create secret generic grafana-smtp \
+                          --from-literal=password="$SMTP_PASSWORD"
+
+                        # Reuse existing chart values and add SMTP via env-backed password
+                        helm upgrade --install kps prometheus-community/kube-prometheus-stack \
+                          -n monitoring \
+                          --reuse-values \
+                          --set grafana.grafana.ini.smtp.enabled=true \
+                          --set grafana.grafana.ini.smtp.host="smtp.gmail.com:587" \
+                          --set grafana.grafana.ini.smtp.user="${SMTP_USER}" \
+                          --set grafana.grafana.ini.smtp.password='$__env{SMTP_PASSWORD}' \
+                          --set grafana.grafana.ini.smtp.from_address="${SMTP_FROM}" \
+                          --set grafana.grafana.ini.smtp.from_name="${SMTP_FROM_NAME}" \
+                          --set grafana.grafana.ini.smtp.skip_verify=true \
+                          --set grafana.env[0].name=SMTP_PASSWORD \
+                          --set grafana.env[0].valueFrom.secretKeyRef.name=grafana-smtp \
+                          --set grafana.env[0].valueFrom.secretKeyRef.key=password
+
+                        # Wait for Grafana to roll out with the new config
+                        kubectl -n monitoring rollout status deploy/kps-grafana
+                      '''
+                    }
+                  }
+                }
+              }
+            }
+
             // ================================================
           }
 
@@ -458,6 +504,48 @@ node('master') {
             '''
           }
         }
+        stage('Configure Grafana SMTP') {
+          when { allOf { expression { params.ACTION == 'deploy' }; expression { params.CONFIGURE_SMTP } } }
+          steps {
+            dir("/var/lib/jenkins/cross-cloud-devops-framework") {
+              withCredentials([string(credentialsId: 'grafana-smtp-app-pass', variable: 'SMTP_PASSWORD')]) {
+                withEnv([
+                  "SMTP_USER=${params.SMTP_USER}",
+                  "SMTP_FROM=${params.SMTP_FROM}",
+                  "SMTP_FROM_NAME=${params.SMTP_FROM_NAME}"
+                ]) {
+                  sh '''
+                    set -euo pipefail
+
+                    # Create/refresh a Kubernetes Secret with the Gmail App Password
+                    kubectl -n monitoring delete secret grafana-smtp --ignore-not-found
+                    kubectl -n monitoring create secret generic grafana-smtp \
+                      --from-literal=password="$SMTP_PASSWORD"
+
+                    # Reuse existing chart values and add SMTP via env-backed password
+                    helm upgrade --install kps prometheus-community/kube-prometheus-stack \
+                      -n monitoring \
+                      --reuse-values \
+                      --set grafana.grafana.ini.smtp.enabled=true \
+                      --set grafana.grafana.ini.smtp.host="smtp.gmail.com:587" \
+                      --set grafana.grafana.ini.smtp.user="${SMTP_USER}" \
+                      --set grafana.grafana.ini.smtp.password='$__env{SMTP_PASSWORD}' \
+                      --set grafana.grafana.ini.smtp.from_address="${SMTP_FROM}" \
+                      --set grafana.grafana.ini.smtp.from_name="${SMTP_FROM_NAME}" \
+                      --set grafana.grafana.ini.smtp.skip_verify=true \
+                      --set grafana.env[0].name=SMTP_PASSWORD \
+                      --set grafana.env[0].valueFrom.secretKeyRef.name=grafana-smtp \
+                      --set grafana.env[0].valueFrom.secretKeyRef.key=password
+
+                    # Wait for Grafana to roll out with the new config
+                    kubectl -n monitoring rollout status deploy/kps-grafana
+                  '''
+                }
+              }
+            }
+          }
+        }
+
         // ================================================
       }
       if (params.ACTION == 'validate') {
